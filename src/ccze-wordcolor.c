@@ -68,6 +68,42 @@ _stolower (const char *str)
   return newstr;
 }
 
+
+/*
+    Seems that getservbyname is very slow, so we use cache.
+*/
+
+typedef struct {
+    char * name;
+    struct servent * entry;
+} getservbyname_cache_t;
+
+#define GETSERVBYNAME_CACHE_SIZE 500
+static getservbyname_cache_t getservbyname_cache[GETSERVBYNAME_CACHE_SIZE];
+
+static struct servent *getservbyname_cached(const char *name, const char *proto)
+{
+    int i;
+
+    if (proto || !name)
+        return getservbyname(name, proto);
+
+    for (i = 0; i < GETSERVBYNAME_CACHE_SIZE; i++)
+    {
+        if (getservbyname_cache[i].name && strcmp(getservbyname_cache[i].name, name) == 0)
+            return getservbyname_cache[i].entry;
+    }
+
+    i = (rand() + strlen(name)) % GETSERVBYNAME_CACHE_SIZE;
+    if (getservbyname_cache[i].name)
+        free(getservbyname_cache[i].name);
+    getservbyname_cache[i].name = strdup(name);
+    getservbyname_cache[i].entry = getservbyname(name, NULL);
+
+    return getservbyname_cache[i].entry;
+}
+
+
 void
 ccze_wordcolor_process_one (char *word, int slookup)
 {
@@ -164,7 +200,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
       printed = 1;
     }
   /* Service */
-  else if (slookup && getservbyname (lword, NULL))
+  else if (slookup && getservbyname_cached (lword, NULL))
     col = CCZE_COLOR_SERVICE;
   /* Protocol */
   else if (slookup && getprotobyname (lword))
