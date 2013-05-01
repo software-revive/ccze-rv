@@ -85,7 +85,19 @@ static struct servent *getservbyname_cached(const char *name, const char *proto)
 {
     int i;
 
-    if (proto || !name)
+    //fprintf(stderr, "\n => %s\n", name);
+
+    if (strlen(name) < 2)
+        return NULL;
+    if (!(
+        (name[0] >= 'a' && name[0] <= 'z') ||
+        (name[0] >= '0' && name[0] <= '9')
+    ))
+        return NULL;
+
+    //fprintf(stderr, "\n +> %s\n", name);
+
+    if (proto)
         return getservbyname(name, proto);
 
     for (i = 0; i < GETSERVBYNAME_CACHE_SIZE; i++)
