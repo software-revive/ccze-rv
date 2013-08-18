@@ -192,13 +192,64 @@ static struct servent *getservbyname_cached(const char *name, const char *proto)
 }
 
 
+
+typedef struct {
+    char * word;
+    size_t size;
+    ccze_color_t color;
+} word_cache_t;
+
+#define WORD_CACHE_SIZE 10
+static word_cache_t word_cache[256][WORD_CACHE_SIZE];
+
+int word_cache_get(const char * word, size_t size, ccze_color_t * color)
+{
+    int i;
+
+    if (size < 1)
+        return 0;
+
+    word_cache_t * cache = word_cache[(unsigned)word[0]];
+
+    for (i = 0; i < WORD_CACHE_SIZE; i++)
+    {
+        if (cache[i].word && cache[i].size == size && memcmp(cache[i].word, word, size) == 0)
+        {
+            *color = cache[i].color;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void word_cache_put(const char * word, size_t size, ccze_color_t color)
+{
+    int i;
+
+    if (size < 1)
+        return;
+
+    word_cache_t * cache = word_cache[(unsigned)word[0]];
+
+    i = (rand() + size) % WORD_CACHE_SIZE;
+    if (cache[i].word)
+    {
+        free(cache[i].word);
+    }
+    cache[i].word = strdup(word);
+    cache[i].size = size;
+    cache[i].color = color;
+}
+
+
 void
 ccze_wordcolor_process_one (char *word, int slookup)
 {
   size_t wlen;
   int offsets[99];
   ccze_color_t col;
-  int match, printed = 0;
+  int match, printed = 0, put_in_cache = 1;
   char *pre = NULL, *post = NULL, *tmp, *lword;
 
   col = CCZE_COLOR_DEFAULT;
@@ -230,8 +281,12 @@ ccze_wordcolor_process_one (char *word, int slookup)
   wlen = strlen (word);
   lword = _stolower (word);
 
+  //printf("\n_word_=%s\n", lword);
+
+  if (word_cache_get(lword, wlen, &col))
+    put_in_cache = 0;
   /** Host **/
-  if (pcre_data_exec (&reg_host, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_host, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_HOST;
   /** MAC address **/
   else if (pcre_data_exec (&reg_mac, lword, wlen, 0, 0, offsets, 99) >= 0)
@@ -317,6 +372,8 @@ ccze_wordcolor_process_one (char *word, int slookup)
       ccze_addstr (CCZE_COLOR_DEFAULT, pre);
       ccze_addstr (col, word);
       ccze_addstr (CCZE_COLOR_DEFAULT, post);
+      if (put_in_cache)
+        word_cache_put(lword, wlen, col);
     }
 
   free (lword);
@@ -400,6 +457,7 @@ ccze_wordcolor_setup (void)
 			  "bus|poll|prof|sys|trap|urg|vtalrm|xcpu|xfsz|iot|"
 			  "emt|stkflt|io|cld|pwr|info|lost|winch|unused)", 0);
   pcre_data_compile (&reg_msgid, "^[a-z0-9-_\\.\\$=\\+]+@([a-z0-9-_\\.]+)+(\\.?[a-z]+)+", 0);
+
 }
 
 void
