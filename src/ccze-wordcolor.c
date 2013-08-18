@@ -1,5 +1,6 @@
 /* -*- mode: c; c-file-style: "gnu" -*-
  * ccze-wordcolor.c -- Word-coloriser functions
+ * Copyright (C) 2013 Vadim Ushakov <igeekless@gmail.com>
  * Copyright (C) 2002, 2003 Gergely Nagy <algernon@bonehunter.rulez.org>
  *
  * This file is part of ccze.
@@ -79,7 +80,7 @@ static const char *words_bad[] = {
 static const char *words_good[] = {
   "activ", "start", "ready", "online", "load", "ok", "register", "detected",
   "configured", "enable", "listen", "open", "complete", "attempt", "done",
-  "check", "listen", "connect", "finish"
+  "check", "connect", "finish"
 };
 
 static const char *words_error[] = {
@@ -91,45 +92,6 @@ static const char *words_system[] = {
   "linux", "tcp/ip", "mtrr", "pci", "isa", "scsi", "ide", "atapi",
   "bios", "cpu", "fpu", "discharging", "resume"
 };
-
-static size_t * words_bad_sizes = NULL;
-static size_t * words_good_sizes = NULL;
-static size_t * words_error_sizes = NULL;
-static size_t * words_system_sizes = NULL;
-
-
-static void initialize_word_sizes(void)
-{
-    size_t i;
-    #define INIT_SIZES(n) \
-        if (!words_##n##_sizes)\
-        {\
-            words_##n##_sizes = calloc(sizeof (words_##n) / sizeof (char *), sizeof(size_t));\
-            for (i = 0; i < sizeof (words_##n) / sizeof (char *); i++)\
-            {\
-                words_##n##_sizes[i] = strlen(words_##n[i]);\
-            }\
-        }
-
-    INIT_SIZES(bad);
-    INIT_SIZES(good);
-    INIT_SIZES(error);
-    INIT_SIZES(system);
-
-    #undef INIT_SIZES
-}
-
-static int match_word_list(const char ** words, size_t * word_sizes, size_t words_nr, const char * str, size_t str_len)
-{
-    size_t i;
-
-    for (i = 0; i < words_nr; i++)
-    {
-        if (str_len >= word_sizes[i] && memcmp(str, words[i], word_sizes[i]) == 0)
-            return 1;
-    }
-    return 0;
-}
 
 
 static char *
@@ -209,7 +171,7 @@ int word_cache_get(const char * word, size_t size, ccze_color_t * color)
     if (size < 1)
         return 0;
 
-    word_cache_t * cache = word_cache[(unsigned)word[0]];
+    word_cache_t * cache = word_cache[0xFF & (unsigned)word[0]];
 
     for (i = 0; i < WORD_CACHE_SIZE; i++)
     {
@@ -353,18 +315,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
     col = CCZE_COLOR_USER;
   else
     { /* Good/Bad/System words */
-      size_t i;
-
-      initialize_word_sizes();
-
-      if (match_word_list(words_bad, words_bad_sizes, sizeof (words_bad) / sizeof (char *), lword, wlen))
-        col = CCZE_COLOR_BADWORD;
-      else if (match_word_list(words_good, words_good_sizes, sizeof (words_good) / sizeof (char *), lword, wlen))
-        col = CCZE_COLOR_GOODWORD;
-      else if (match_word_list(words_error, words_error_sizes, sizeof (words_error) / sizeof (char *), lword, wlen))
-        col = CCZE_COLOR_ERROR;
-      else if (match_word_list(words_system, words_system_sizes, sizeof (words_system) / sizeof (char *), lword, wlen))
-        col = CCZE_COLOR_SYSTEMWORD;
+      ccze_keyword_match(lword, wlen, &col);
     }
 
   if (!printed)
@@ -458,6 +409,10 @@ ccze_wordcolor_setup (void)
 			  "emt|stkflt|io|cld|pwr|info|lost|winch|unused)", 0);
   pcre_data_compile (&reg_msgid, "^[a-z0-9-_\\.\\$=\\+]+@([a-z0-9-_\\.]+)+(\\.?[a-z]+)+", 0);
 
+  ccze_keyword_add(words_bad, sizeof (words_bad) / sizeof (char *), CCZE_COLOR_BADWORD);
+  ccze_keyword_add(words_good, sizeof (words_good) / sizeof (char *), CCZE_COLOR_GOODWORD);
+  ccze_keyword_add(words_error, sizeof (words_error) / sizeof (char *), CCZE_COLOR_ERROR);
+  ccze_keyword_add(words_system, sizeof (words_system) / sizeof (char *), CCZE_COLOR_SYSTEMWORD);
 }
 
 void
@@ -478,4 +433,5 @@ ccze_wordcolor_shutdown (void)
   pcre_data_free_fields(&reg_sig);
   pcre_data_free_fields(&reg_hostip);
   pcre_data_free_fields(&reg_msgid);
+  ccze_keyword_clean();
 }

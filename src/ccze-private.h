@@ -24,6 +24,10 @@
 
 #include <ccze.h>
 
+void ccze_keyword_clean(void);
+void ccze_keyword_add(const char ** words, size_t words_nr, ccze_color_t color);
+int ccze_keyword_match(const char * word, size_t word_len, ccze_color_t * color);
+
 /* ccze-color.c */
 void ccze_color_init (void);
 void ccze_color_parse (char *line);

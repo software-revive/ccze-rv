@@ -44,7 +44,7 @@ PLUGIN_OBJS	= ${PLUGIN_SHOBJS} ${PLUGIN_SOBJS}
 CLEANFILES	= ccze-dump ccze-cssdump
 DISTCLEANFILES	= ccze-builtins.c
 OBJECTS		= ccze.o ccze-color.o ccze-plugin.o ccze-wordcolor.o \
-		ccze-builtins.o ccze-compat.o
+		ccze-keywordlookup.o ccze-builtins.o ccze-compat.o
 
 ## -- Standard targets -- ##
 all: ${PROGRAM} ${PLUGIN_SHOBJS} ccze-dump ccze-cssdump
@@ -105,6 +105,8 @@ ccze.o: ccze.c ${top_builddir}/system.h ccze.h ccze-private.h \
 ccze-color.o: ccze-color.c ${top_builddir}/system.h ccze.h ccze-private.h
 ccze-plugin.o: ccze-plugin.c ${top_builddir}/system.h ccze.h ccze-private.h
 ccze-wordcolor.o: ccze-wordcolor.c ${top_builddir}/system.h ccze.h \
+		  ccze-private.h
+ccze-keywordlookup.o: ccze-keywordlookup.c ${top_builddir}/system.h ccze.h \
 		  ccze-private.h
 ccze-compat.o: ccze-compat.c ${top_builddir}/system.h ccze-compat.h \
 	       ccze.h
