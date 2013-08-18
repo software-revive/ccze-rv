@@ -24,9 +24,20 @@
 
 #include <ccze.h>
 
-void ccze_keyword_clean(void);
-void ccze_keyword_add(const char ** words, size_t words_nr, ccze_color_t color);
-int ccze_keyword_match(const char * word, size_t word_len, ccze_color_t * color);
+/* ccze-keywordlookup.c */
+
+typedef struct _keyword_t keyword_t;
+typedef struct {
+    keyword_t * keywords[256];
+    size_t      keywords_nr[256];
+    int         keywords_sorted;
+} keywords_t;
+
+void ccze_keyword_clean(keywords_t * K);
+void ccze_keyword_add(keywords_t * K, const char ** words, size_t words_nr, ccze_color_t color);
+void ccze_keyword_add1(keywords_t * K, const char * word, ccze_color_t color);
+int ccze_keyword_match_prefix(keywords_t * K, const char * word, size_t word_len, ccze_color_t * color);
+int ccze_keyword_match(keywords_t * K, const char * word, size_t word_len, ccze_color_t * color);
 
 /* ccze-color.c */
 void ccze_color_init (void);

@@ -94,6 +94,11 @@ static const char *words_system[] = {
 };
 
 
+keywords_t wellknown_keywords;
+keywords_t services_and_protocols_keywords;
+int services_and_protocols_read = 0;
+
+
 static char *
 _stolower (const char *str)
 {
@@ -107,50 +112,44 @@ _stolower (const char *str)
 }
 
 
-/*
-    Seems that getservbyname is very slow, so we use cache.
-*/
-
-typedef struct {
-    char * name;
-    struct servent * entry;
-} getservbyname_cache_t;
-
-#define GETSERVBYNAME_CACHE_SIZE 500
-static getservbyname_cache_t getservbyname_cache[GETSERVBYNAME_CACHE_SIZE];
-
-static struct servent *getservbyname_cached(const char *name, const char *proto)
+static void read_services_and_protocols(void)
 {
-    int i;
+    if (services_and_protocols_read)
+        return;
 
-    //fprintf(stderr, "\n => %s\n", name);
-
-    if (strlen(name) < 2)
-        return NULL;
-    if (!(
-        (name[0] >= 'a' && name[0] <= 'z') ||
-        (name[0] >= '0' && name[0] <= '9')
-    ))
-        return NULL;
-
-    //fprintf(stderr, "\n +> %s\n", name);
-
-    if (proto)
-        return getservbyname(name, proto);
-
-    for (i = 0; i < GETSERVBYNAME_CACHE_SIZE; i++)
+    setprotoent(1);
+    while (1)
     {
-        if (getservbyname_cache[i].name && strcmp(getservbyname_cache[i].name, name) == 0)
-            return getservbyname_cache[i].entry;
+        struct protoent * p = getprotoent();
+        if (!p)
+            break;
+        ccze_keyword_add1(&services_and_protocols_keywords, p->p_name, CCZE_COLOR_PROT);
+        char ** aliases = p->p_aliases;
+        while (aliases && *aliases)
+        {
+            ccze_keyword_add1(&services_and_protocols_keywords, *aliases, CCZE_COLOR_PROT);
+            aliases++;
+        }
     }
+    endprotoent();
 
-    i = (rand() + strlen(name)) % GETSERVBYNAME_CACHE_SIZE;
-    if (getservbyname_cache[i].name)
-        free(getservbyname_cache[i].name);
-    getservbyname_cache[i].name = strdup(name);
-    getservbyname_cache[i].entry = getservbyname(name, NULL);
+    setservent(1);
+    while (1)
+    {
+        struct servent * s = getservent();
+        if (!s)
+            break;
+        ccze_keyword_add1(&services_and_protocols_keywords, s->s_name, CCZE_COLOR_SERVICE);
+        char ** aliases = s->s_aliases;
+        while (aliases && *aliases)
+        {
+            ccze_keyword_add1(&services_and_protocols_keywords, *aliases, CCZE_COLOR_SERVICE);
+            aliases++;
+        }
+    }
+    endservent();
 
-    return getservbyname_cache[i].entry;
+    services_and_protocols_read = 1;
 }
 
 
@@ -164,7 +163,7 @@ typedef struct {
 #define WORD_CACHE_SIZE 10
 static word_cache_t word_cache[256][WORD_CACHE_SIZE];
 
-int word_cache_get(const char * word, size_t size, ccze_color_t * color)
+static int word_cache_get(const char * word, size_t size, ccze_color_t * color)
 {
     int i;
 
@@ -185,7 +184,7 @@ int word_cache_get(const char * word, size_t size, ccze_color_t * color)
     return 0;
 }
 
-void word_cache_put(const char * word, size_t size, ccze_color_t color)
+static void word_cache_put(const char * word, size_t size, ccze_color_t color)
 {
     int i;
 
@@ -304,18 +303,22 @@ ccze_wordcolor_process_one (char *word, int slookup)
       free (ip);
       printed = 1;
     }
-  /* Service */
-  else if (slookup && getservbyname_cached (lword, NULL))
+  /* Service or procotol. */
+/*  else if (slookup && getservbyname_cached (lword, NULL))
     col = CCZE_COLOR_SERVICE;
-  /* Protocol */
   else if (slookup && getprotobyname (lword))
     col = CCZE_COLOR_PROT;
+*/
+  else if (slookup && (read_services_and_protocols(), ccze_keyword_match(&services_and_protocols_keywords, lword, wlen, &col)))
+    {
+      /* nothing */
+    }
   /* User */
   else if (slookup && getpwnam (lword))
     col = CCZE_COLOR_USER;
   else
     { /* Good/Bad/System words */
-      ccze_keyword_match(lword, wlen, &col);
+      ccze_keyword_match_prefix(&wellknown_keywords, lword, wlen, &col);
     }
 
   if (!printed)
@@ -409,10 +412,10 @@ ccze_wordcolor_setup (void)
 			  "emt|stkflt|io|cld|pwr|info|lost|winch|unused)", 0);
   pcre_data_compile (&reg_msgid, "^[a-z0-9-_\\.\\$=\\+]+@([a-z0-9-_\\.]+)+(\\.?[a-z]+)+", 0);
 
-  ccze_keyword_add(words_bad, sizeof (words_bad) / sizeof (char *), CCZE_COLOR_BADWORD);
-  ccze_keyword_add(words_good, sizeof (words_good) / sizeof (char *), CCZE_COLOR_GOODWORD);
-  ccze_keyword_add(words_error, sizeof (words_error) / sizeof (char *), CCZE_COLOR_ERROR);
-  ccze_keyword_add(words_system, sizeof (words_system) / sizeof (char *), CCZE_COLOR_SYSTEMWORD);
+  ccze_keyword_add(&wellknown_keywords, words_bad, sizeof (words_bad) / sizeof (char *), CCZE_COLOR_BADWORD);
+  ccze_keyword_add(&wellknown_keywords, words_good, sizeof (words_good) / sizeof (char *), CCZE_COLOR_GOODWORD);
+  ccze_keyword_add(&wellknown_keywords, words_error, sizeof (words_error) / sizeof (char *), CCZE_COLOR_ERROR);
+  ccze_keyword_add(&wellknown_keywords, words_system, sizeof (words_system) / sizeof (char *), CCZE_COLOR_SYSTEMWORD);
 }
 
 void
@@ -433,5 +436,7 @@ ccze_wordcolor_shutdown (void)
   pcre_data_free_fields(&reg_sig);
   pcre_data_free_fields(&reg_hostip);
   pcre_data_free_fields(&reg_msgid);
-  ccze_keyword_clean();
+  ccze_keyword_clean(&wellknown_keywords);
+  ccze_keyword_clean(&services_and_protocols_keywords);
+  services_and_protocols_read = 0;
 }
