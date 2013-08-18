@@ -29,9 +29,45 @@
 #include "ccze-private.h"
 #include "ccze-compat.h"
 
-static pcre *reg_pre, *reg_post, *reg_host, *reg_mac, *reg_email;
-static pcre *reg_uri, *reg_size, *reg_ver, *reg_time, *reg_addr;
-static pcre *reg_num, *reg_sig, *reg_email2, *reg_hostip, *reg_msgid;
+typedef struct {
+    pcre * code;
+    pcre_extra * extra;
+} pcre_data;
+
+static pcre_data reg_pre, reg_post, reg_host, reg_mac, reg_email;
+static pcre_data reg_uri, reg_size, reg_ver, reg_time, reg_addr;
+static pcre_data reg_num, reg_sig, reg_email2, reg_hostip, reg_msgid;
+
+static int pcre_data_exec(const pcre_data * data,
+                          const char *subject, int length, int startoffset,
+                          int options, int *ovector, int ovecsize)
+{
+    return pcre_exec(data->code, data->extra, subject, length, startoffset, options, ovector, ovecsize);
+}
+
+static void pcre_data_compile(pcre_data * data, const char *pattern, int options)
+{
+    const char *error;
+    int errptr;
+    data->code = pcre_compile(pattern, options, &error, &errptr, NULL);
+    data->extra = pcre_study(data->code, PCRE_STUDY_JIT_COMPILE, &error);
+}
+
+static void pcre_data_free_fields(pcre_data * data)
+{
+    if (data->code)
+    {
+        pcre_free(data->code);
+        data->code = NULL;
+    }
+
+    if (data->extra)
+    {
+        pcre_free_study(data->extra);
+        data->extra = NULL;
+    }
+}
+
 
 static const char *words_bad[] = {
   "warn", "restart", "exit", "stop", "end", "shutting", "down", "close",
@@ -168,7 +204,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
   col = CCZE_COLOR_DEFAULT;
 
   /** prefix **/
-  if ((match = pcre_exec (reg_pre, NULL, word, strlen (word), 0, 0,
+  if ((match = pcre_data_exec (&reg_pre, word, strlen (word), 0, 0,
 			  offsets, 99)) >= 0)
     {
       pcre_get_substring (word, offsets, match, 1, (const char **)&pre);
@@ -180,7 +216,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
     pre = NULL;
 
   /** postfix **/
-  if ((match = pcre_exec (reg_post, NULL, word, strlen (word), 0, 0,
+  if ((match = pcre_data_exec (&reg_post, word, strlen (word), 0, 0,
 			  offsets, 99)) >= 0)
     {
       pcre_get_substring (word, offsets, match, 1, (const char **)&tmp);
@@ -195,45 +231,45 @@ ccze_wordcolor_process_one (char *word, int slookup)
   lword = _stolower (word);
 
   /** Host **/
-  if (pcre_exec (reg_host, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  if (pcre_data_exec (&reg_host, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_HOST;
   /** MAC address **/
-  else if (pcre_exec (reg_mac, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_mac, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_MAC;
   /** Directory **/
   else if (lword[0] == '/')
     col = CCZE_COLOR_DIR;
   /** E-mail **/
-  else if (pcre_exec (reg_email, NULL, lword, wlen, 0, 0, offsets, 99)
-	   >= 0 && pcre_exec (reg_email2, NULL, lword, wlen, 0, 0,
+  else if (pcre_data_exec (&reg_email, lword, wlen, 0, 0, offsets, 99)
+	   >= 0 && pcre_data_exec (&reg_email2, lword, wlen, 0, 0,
 			      offsets,99) >= 0)
     col = CCZE_COLOR_EMAIL;
   /** Message-ID **/
-  else if (pcre_exec (reg_msgid, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_msgid, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_EMAIL;
   /** URI **/
-  else if (pcre_exec (reg_uri, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_uri, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_URI;
   /** Size **/
-  else if (pcre_exec (reg_size, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_size, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_SIZE;
   /** Version **/
-  else if (pcre_exec (reg_ver, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_ver, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_VERSION;
   /** Time **/
-  else if (pcre_exec (reg_time, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_time, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_DATE;
   /** Address **/
-  else if (pcre_exec (reg_addr, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_addr, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_ADDRESS;
   /** Number **/
-  else if (pcre_exec (reg_num, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_num, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_NUMBERS;
   /** Signal **/
-  else if (pcre_exec (reg_sig, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_sig, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_SIGNAL;
   /* Host + IP (postfix) */
-  else if (pcre_exec (reg_hostip, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_hostip, lword, wlen, 0, 0, offsets, 99) >= 0)
     {
       char *host, *ip;
       size_t hostlen, iplen;
@@ -341,61 +377,47 @@ ccze_wordcolor_setup (void)
   const char *error;
   int errptr;
 
-  reg_pre = pcre_compile ("^([`'\".,!?:;(\\[{<]+)([^`'\".,!?:;(\\[{<]\\S*)$",
-			  0, &error, &errptr, NULL);
-  reg_post = pcre_compile ("^(\\S*[^`'\".,!?:;)\\]}>])([`'\".,!?:;)\\]}>]+)$",
-			   0, &error, &errptr, NULL);
-  reg_host = pcre_compile ("^(((\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})|"
+  pcre_data_compile (&reg_pre, "^([`'\".,!?:;(\\[{<]+)([^`'\".,!?:;(\\[{<]\\S*)$", 0);
+  pcre_data_compile (&reg_post, "^(\\S*[^`'\".,!?:;)\\]}>])([`'\".,!?:;)\\]}>]+)$", 0);
+  pcre_data_compile (&reg_host, "^(((\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})|"
 			   "(([a-z0-9-_]+\\.)+[a-z]{2,3})|(localhost)|"
-			   "(\\w*::\\w+)+)(:\\d{1,5})?)$", 0, &error,
-			   &errptr, NULL);
-  reg_hostip = pcre_compile ("^(((\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})|"
+			   "(\\w*::\\w+)+)(:\\d{1,5})?)$", 0);
+  pcre_data_compile (&reg_hostip, "^(((\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})|"
 			     "(([a-z0-9-_\\.]+)+)|(localhost)|"
 			     "(\\w*::\\w+)+)(:\\d{1,5})?)"
-			     "\\[",
-			     0, &error,  &errptr, NULL);
-  reg_mac = pcre_compile ("^([0-9a-f]{2}:){5}[0-9a-f]{2}$", 0, &error,
-			  &errptr, NULL);
-  reg_email = pcre_compile
-    ("^[a-z0-9-_=\\+]+@([a-z0-9-_\\.]+)+(\\.[a-z]{2,4})+", 0,
-     &error, &errptr, NULL);
-  reg_email2 = pcre_compile ("(\\.[a-z]{2,4})+$", 0, &error, &errptr, NULL);
-  reg_uri = pcre_compile ("^\\w{2,}:\\/\\/(\\S+\\/?)+$", 0, &error,
-			  &errptr, NULL);
-  reg_size = pcre_compile ("^\\d+(\\.\\d+)?[k|m|g|t]i?b?(ytes?)?",
-			   0, &error, &errptr, NULL);
-  reg_ver = pcre_compile ("^v?(\\d+\\.){1}((\\d|[a-z])+\\.)*(\\d|[a-z])+$",
-			  0, &error, &errptr, NULL);
-  reg_time = pcre_compile ("\\d{1,2}:\\d{1,2}(:\\d{1,2})?", 0, &error,
-			   &errptr, NULL);
-  reg_addr = pcre_compile ("^0x(\\d|[a-f])+$", 0, &error, &errptr, NULL);
-  reg_num = pcre_compile ("^-?\\d+$", 0, &error, &errptr, NULL);
-  reg_sig = pcre_compile ("^sig(hup|int|quit|ill|abrt|fpe|kill|segv|pipe|"
+			     "\\[", 0);
+  pcre_data_compile (&reg_mac, "^([0-9a-f]{2}:){5}[0-9a-f]{2}$", 0);
+  pcre_data_compile (&reg_email, "^[a-z0-9-_=\\+]+@([a-z0-9-_\\.]+)+(\\.[a-z]{2,4})+", 0);
+  pcre_data_compile (&reg_email2, "(\\.[a-z]{2,4})+$", 0);
+  pcre_data_compile (&reg_uri, "^\\w{2,}:\\/\\/(\\S+\\/?)+$", 0);
+  pcre_data_compile (&reg_size, "^\\d+(\\.\\d+)?[k|m|g|t]i?b?(ytes?)?", 0);
+  pcre_data_compile (&reg_ver, "^v?(\\d+\\.){1}((\\d|[a-z])+\\.)*(\\d|[a-z])+$", 0);
+  pcre_data_compile (&reg_time, "\\d{1,2}:\\d{1,2}(:\\d{1,2})?", 0);
+  pcre_data_compile (&reg_addr, "^0x(\\d|[a-f])+$", 0);
+  pcre_data_compile (&reg_num, "^-?\\d+$", 0);
+  pcre_data_compile (&reg_sig, "^sig(hup|int|quit|ill|abrt|fpe|kill|segv|pipe|"
 			  "alrm|term|usr1|usr2|chld|cont|stop|tstp|tin|tout|"
 			  "bus|poll|prof|sys|trap|urg|vtalrm|xcpu|xfsz|iot|"
-			  "emt|stkflt|io|cld|pwr|info|lost|winch|unused)", 0,
-			  &error, &errptr, NULL);
-  reg_msgid = pcre_compile
-    ("^[a-z0-9-_\\.\\$=\\+]+@([a-z0-9-_\\.]+)+(\\.?[a-z]+)+", 0, &error,
-     &errptr, NULL);
+			  "emt|stkflt|io|cld|pwr|info|lost|winch|unused)", 0);
+  pcre_data_compile (&reg_msgid, "^[a-z0-9-_\\.\\$=\\+]+@([a-z0-9-_\\.]+)+(\\.?[a-z]+)+", 0);
 }
 
 void
 ccze_wordcolor_shutdown (void)
 {
-  free (reg_pre);
-  free (reg_post);
-  free (reg_host);
-  free (reg_mac);
-  free (reg_email);
-  free (reg_email2);
-  free (reg_uri);
-  free (reg_size);
-  free (reg_ver);
-  free (reg_time);
-  free (reg_addr);
-  free (reg_num);
-  free (reg_sig);
-  free (reg_hostip);
-  free (reg_msgid);
+  pcre_data_free_fields(&reg_pre);
+  pcre_data_free_fields(&reg_post);
+  pcre_data_free_fields(&reg_host);
+  pcre_data_free_fields(&reg_mac);
+  pcre_data_free_fields(&reg_email);
+  pcre_data_free_fields(&reg_email2);
+  pcre_data_free_fields(&reg_uri);
+  pcre_data_free_fields(&reg_size);
+  pcre_data_free_fields(&reg_ver);
+  pcre_data_free_fields(&reg_time);
+  pcre_data_free_fields(&reg_addr);
+  pcre_data_free_fields(&reg_num);
+  pcre_data_free_fields(&reg_sig);
+  pcre_data_free_fields(&reg_hostip);
+  pcre_data_free_fields(&reg_msgid);
 }
