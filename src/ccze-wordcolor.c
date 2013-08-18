@@ -33,28 +33,68 @@ static pcre *reg_pre, *reg_post, *reg_host, *reg_mac, *reg_email;
 static pcre *reg_uri, *reg_size, *reg_ver, *reg_time, *reg_addr;
 static pcre *reg_num, *reg_sig, *reg_email2, *reg_hostip, *reg_msgid;
 
-static char *words_bad[] = {
+static const char *words_bad[] = {
   "warn", "restart", "exit", "stop", "end", "shutting", "down", "close",
   "unreach", "can't", "cannot", "skip", "deny", "disable", "ignored",
   "miss", "oops", "not", "backdoor", "blocking", "ignoring",
   "unable", "readonly", "offline", "terminate", "empty"
 };
 
-static char *words_good[] = {
+static const char *words_good[] = {
   "activ", "start", "ready", "online", "load", "ok", "register", "detected",
   "configured", "enable", "listen", "open", "complete", "attempt", "done",
   "check", "listen", "connect", "finish"
 };
 
-static char *words_error[] = {
+static const char *words_error[] = {
   "error", "crit", "invalid", "fail", "false", "alarm", "fatal"
 };
 
-static char *words_system[] = {
+static const char *words_system[] = {
   "ext2-fs", "reiserfs", "vfs", "iso", "isofs", "cslip", "ppp", "bsd",
   "linux", "tcp/ip", "mtrr", "pci", "isa", "scsi", "ide", "atapi",
   "bios", "cpu", "fpu", "discharging", "resume"
 };
+
+static size_t * words_bad_sizes = NULL;
+static size_t * words_good_sizes = NULL;
+static size_t * words_error_sizes = NULL;
+static size_t * words_system_sizes = NULL;
+
+
+static void initialize_word_sizes(void)
+{
+    size_t i;
+    #define INIT_SIZES(n) \
+        if (!words_##n##_sizes)\
+        {\
+            words_##n##_sizes = calloc(sizeof (words_##n) / sizeof (char *), sizeof(size_t));\
+            for (i = 0; i < sizeof (words_##n) / sizeof (char *); i++)\
+            {\
+                words_##n##_sizes[i] = strlen(words_##n[i]);\
+            }\
+        }
+
+    INIT_SIZES(bad);
+    INIT_SIZES(good);
+    INIT_SIZES(error);
+    INIT_SIZES(system);
+
+    #undef INIT_SIZES
+}
+
+static int match_word_list(const char ** words, size_t * word_sizes, size_t words_nr, const char * str, size_t str_len)
+{
+    size_t i;
+
+    for (i = 0; i < words_nr; i++)
+    {
+        if (str_len >= word_sizes[i] && memcmp(str, words[i], word_sizes[i]) == 0)
+            return 1;
+    }
+    return 0;
+}
+
 
 static char *
 _stolower (const char *str)
@@ -153,7 +193,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
 
   wlen = strlen (word);
   lword = _stolower (word);
-      
+
   /** Host **/
   if (pcre_exec (reg_host, NULL, lword, wlen, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_HOST;
@@ -197,7 +237,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
     {
       char *host, *ip;
       size_t hostlen, iplen;
-      
+
       host = strndup (word, strchr (word, '[') - (word));
       hostlen = strlen (host);
       iplen = strlen (word) - hostlen - 1;
@@ -223,27 +263,17 @@ ccze_wordcolor_process_one (char *word, int slookup)
   else
     { /* Good/Bad/System words */
       size_t i;
-      
-      for (i = 0; i < sizeof (words_bad) / sizeof (char *); i++)
-	{
-	  if (strstr (lword, words_bad[i]) == lword)
-	    col = CCZE_COLOR_BADWORD;
-	}
-      for (i = 0; i < sizeof (words_good) / sizeof (char *); i++)
-	{
-	  if (strstr (lword, words_good[i]) == lword)
-	    col = CCZE_COLOR_GOODWORD;
-	}
-      for (i = 0; i < sizeof (words_error) / sizeof (char *); i++)
-	{
-	  if (strstr (lword, words_error[i]) == lword)
-	    col = CCZE_COLOR_ERROR;
-	}
-      for (i = 0; i < sizeof (words_system) / sizeof (char *); i++)
-	{
-	  if (strstr (lword, words_system[i]) == lword)
-	    col = CCZE_COLOR_SYSTEMWORD;
-	}
+
+      initialize_word_sizes();
+
+      if (match_word_list(words_bad, words_bad_sizes, sizeof (words_bad) / sizeof (char *), lword, wlen))
+        col = CCZE_COLOR_BADWORD;
+      else if (match_word_list(words_good, words_good_sizes, sizeof (words_good) / sizeof (char *), lword, wlen))
+        col = CCZE_COLOR_GOODWORD;
+      else if (match_word_list(words_error, words_error_sizes, sizeof (words_error) / sizeof (char *), lword, wlen))
+        col = CCZE_COLOR_ERROR;
+      else if (match_word_list(words_system, words_system_sizes, sizeof (words_system) / sizeof (char *), lword, wlen))
+        col = CCZE_COLOR_SYSTEMWORD;
     }
 
   if (!printed)
@@ -252,7 +282,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
       ccze_addstr (col, word);
       ccze_addstr (CCZE_COLOR_DEFAULT, post);
     }
-  
+
   free (lword);
   free (word);
   free (post);
