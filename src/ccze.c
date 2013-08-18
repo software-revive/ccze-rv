@@ -46,9 +46,11 @@
 #define WHITE COLOR_PAIR (7)
 
 #define ESC 0x1b
+#define sESC "\x1b"
 
 /* ccze somehow swaped cyan and magenta */
 static int ccze_raw_ansi_color[] = {30, 31, 32, 33, 34, 36, 35, 37};
+static const char * ccze_raw_ansi_color_s[] = {"30", "31", "32", "33", "34", "36", "35", "37"};
 
 ccze_config_t ccze_config = {
   .scroll = 1,
@@ -451,35 +453,42 @@ ccze_addstr_internal (ccze_color_t col, const char *str, int enc)
 	{
 	  int c = ccze_color (col);
 
-	  printf("%c[22m", ESC); /* default */
+	  fputs(sESC "[22m", stdout); /* default */
 
 	  if (c & 0x1000) /* Bold */
 	    {
-	      printf("%c[1m", ESC);
+	      fputs(sESC "[1m", stdout);
 	      c ^= 0x1000;
 	    }
 	  
 	  if (c & 0x2000) /* Underline */
 	    {
-	      printf("%c[4m", ESC);
+	      fputs(sESC "[4m", stdout);
 	      c ^= 0x2000;
 	    }
 	  
 	  if (c & 0x4000) /* Reverse */
 	    {
-	      printf("%c[5m", ESC);
+	      fputs(sESC "[5m", stdout);
 	      c ^= 0x4000;
 	    }
 	  
 	  if (c & 0x8000) /* Blink */
 	    {
-	      printf("%c[7m", ESC);
+	      fputs(sESC "[7m", stdout);
 	      c ^= 0x8000;
 	    }
 
 	  if (c >> 8 > 0 || !ccze_config.transparent)
-	    printf("%c[%dm", ESC, ccze_raw_ansi_color[c >> 8] + 10);
-	  printf ("%c[%dm%s%c[0m", ESC, ccze_raw_ansi_color[c & 0xf], str, ESC);
+	    printf(sESC "[%dm", ccze_raw_ansi_color[c >> 8] + 10);
+
+	  //printf too slow
+	  //printf (sESC "[%dm%s" sESC "[0m", ccze_raw_ansi_color[c & 0xf], str);
+	  fputs(sESC "[", stdout);
+	  fputs(ccze_raw_ansi_color_s[c & 0xf], stdout);
+	  fputs("m", stdout);
+	  fputs(str, stdout);
+	  fputs(sESC "[0m", stdout);
 	}
       break;
     case CCZE_MODE_DEBUG:
