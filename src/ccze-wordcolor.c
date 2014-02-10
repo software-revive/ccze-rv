@@ -205,87 +205,85 @@ static void word_cache_put(const char * word, size_t size, ccze_color_t color)
 
 
 void
-ccze_wordcolor_process_one (char *word, int slookup)
+ccze_wordcolor_process_one (char *_word, int slookup)
 {
-  size_t wlen;
   int offsets[99];
   ccze_color_t col;
   int match, printed = 0, put_in_cache = 1;
-  char *pre = NULL, *post = NULL, *tmp, *lword;
+
+  const char * prefix = NULL;
+  const char * postfix = NULL;
+
+  const char * word_no_prefix = NULL;
+  const char * word_no_postfix = NULL;
+
+  const char * word = _word;
 
   col = CCZE_COLOR_DEFAULT;
 
   /** prefix **/
-  if ((match = pcre_data_exec (&reg_pre, word, strlen (word), 0, 0,
-			  offsets, 99)) >= 0)
+  if ((match = pcre_data_exec (&reg_pre, word, strlen (word), 0, 0, offsets, 99)) >= 0)
     {
-      pcre_get_substring (word, offsets, match, 1, (const char **)&pre);
-      pcre_get_substring (word, offsets, match, 2, (const char **)&tmp);
-      free (word);
-      word = tmp;
+      pcre_get_substring (word, offsets, match, 1, &prefix);
+      pcre_get_substring (word, offsets, match, 2, &word_no_prefix);
+      word = word_no_prefix;
     }
-  else
-    pre = NULL;
 
   /** postfix **/
-  if ((match = pcre_data_exec (&reg_post, word, strlen (word), 0, 0,
-			  offsets, 99)) >= 0)
+  if ((match = pcre_data_exec (&reg_post, word, strlen (word), 0, 0, offsets, 99)) >= 0)
     {
-      pcre_get_substring (word, offsets, match, 1, (const char **)&tmp);
-      pcre_get_substring (word, offsets, match, 2, (const char **)&post);
-      free (word);
-      word = tmp;
+      pcre_get_substring (word, offsets, match, 1, &word_no_postfix);
+      pcre_get_substring (word, offsets, match, 2, &postfix);
+      word = word_no_postfix;
     }
-  else
-    post = NULL;
 
-  wlen = strlen (word);
-  lword = _stolower (word);
+  char * lword = _stolower (word);
+  size_t lword_len = strlen (lword);
 
   //printf("\n_word_=%s\n", lword);
 
-  if (word_cache_get(lword, wlen, &col))
+  if (word_cache_get(lword, lword_len, &col))
     put_in_cache = 0;
   /** Host **/
-  else if (pcre_data_exec (&reg_host, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_host, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_HOST;
   /** MAC address **/
-  else if (pcre_data_exec (&reg_mac, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_mac, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_MAC;
   /** Directory **/
   else if (lword[0] == '/')
     col = CCZE_COLOR_DIR;
   /** E-mail **/
-  else if (pcre_data_exec (&reg_email, lword, wlen, 0, 0, offsets, 99)
-	   >= 0 && pcre_data_exec (&reg_email2, lword, wlen, 0, 0,
+  else if (pcre_data_exec (&reg_email, lword, lword_len, 0, 0, offsets, 99)
+	   >= 0 && pcre_data_exec (&reg_email2, lword, lword_len, 0, 0,
 			      offsets,99) >= 0)
     col = CCZE_COLOR_EMAIL;
   /** Message-ID **/
-  else if (pcre_data_exec (&reg_msgid, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_msgid, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_EMAIL;
   /** URI **/
-  else if (pcre_data_exec (&reg_uri, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_uri, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_URI;
   /** Size **/
-  else if (pcre_data_exec (&reg_size, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_size, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_SIZE;
   /** Version **/
-  else if (pcre_data_exec (&reg_ver, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_ver, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_VERSION;
   /** Time **/
-  else if (pcre_data_exec (&reg_time, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_time, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_DATE;
   /** Address **/
-  else if (pcre_data_exec (&reg_addr, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_addr, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_ADDRESS;
   /** Number **/
-  else if (pcre_data_exec (&reg_num, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_num, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_NUMBERS;
   /** Signal **/
-  else if (pcre_data_exec (&reg_sig, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_sig, lword, lword_len, 0, 0, offsets, 99) >= 0)
     col = CCZE_COLOR_SIGNAL;
   /* Host + IP (postfix) */
-  else if (pcre_data_exec (&reg_hostip, lword, wlen, 0, 0, offsets, 99) >= 0)
+  else if (pcre_data_exec (&reg_hostip, lword, lword_len, 0, 0, offsets, 99) >= 0)
     {
       char *host, *ip;
       size_t hostlen, iplen;
@@ -309,7 +307,7 @@ ccze_wordcolor_process_one (char *word, int slookup)
   else if (slookup && getprotobyname (lword))
     col = CCZE_COLOR_PROT;
 */
-  else if (slookup && (read_services_and_protocols(), ccze_keyword_match(&services_and_protocols_keywords, lword, wlen, &col)))
+  else if (slookup && (read_services_and_protocols(), ccze_keyword_match(&services_and_protocols_keywords, lword, lword_len, &col)))
     {
       /* nothing */
     }
@@ -318,22 +316,28 @@ ccze_wordcolor_process_one (char *word, int slookup)
     col = CCZE_COLOR_USER;
   else
     { /* Good/Bad/System words */
-      ccze_keyword_match_prefix(&wellknown_keywords, lword, wlen, &col);
+      ccze_keyword_match_prefix(&wellknown_keywords, lword, lword_len, &col);
     }
 
   if (!printed)
     {
-      ccze_addstr (CCZE_COLOR_DEFAULT, pre);
+      ccze_addstr (CCZE_COLOR_DEFAULT, prefix);
       ccze_addstr (col, word);
-      ccze_addstr (CCZE_COLOR_DEFAULT, post);
+      ccze_addstr (CCZE_COLOR_DEFAULT, postfix);
       if (put_in_cache)
-        word_cache_put(lword, wlen, col);
+        word_cache_put(lword, lword_len, col);
     }
 
   free (lword);
-  free (word);
-  free (post);
-  free (pre);
+  free (_word);
+  if (word_no_postfix)
+      pcre_free_substring (word_no_postfix);
+  if (word_no_prefix)
+      pcre_free_substring (word_no_prefix);
+  if (postfix)
+      pcre_free_substring (postfix);
+  if (prefix)
+      pcre_free_substring (prefix);
 }
 
 void
