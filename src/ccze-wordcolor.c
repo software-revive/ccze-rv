@@ -165,7 +165,7 @@ static word_cache_t word_cache[256][WORD_CACHE_SIZE];
 
 static int word_cache_get(const char * word, size_t size, ccze_color_t * color)
 {
-    int i;
+    unsigned i;
 
     if (size < 1)
         return 0;
@@ -186,21 +186,21 @@ static int word_cache_get(const char * word, size_t size, ccze_color_t * color)
 
 static void word_cache_put(const char * word, size_t size, ccze_color_t color)
 {
-    int i;
-
     if (size < 1)
         return;
 
-    word_cache_t * cache = word_cache[(unsigned)word[0]];
+    unsigned n = 0xFF & ((unsigned)word[0]);
+    unsigned i = ((unsigned)rand() + size) % WORD_CACHE_SIZE;
 
-    i = (rand() + size) % WORD_CACHE_SIZE;
-    if (cache[i].word)
+    word_cache_t * cache = word_cache[n] + i;
+
+    if (cache->word)
     {
-        free(cache[i].word);
+        free(cache->word);
     }
-    cache[i].word = strdup(word);
-    cache[i].size = size;
-    cache[i].color = color;
+    cache->word = strdup(word);
+    cache->size = size;
+    cache->color = color;
 }
 
 
