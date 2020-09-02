@@ -75,8 +75,8 @@ static volatile sig_atomic_t sighup_received = 0;
 #ifndef HAVE_ARGP_PARSE
 const char *argp_program_name = "ccze";
 #endif
-const char *argp_program_version = "ccze 0.2." PATCHLEVEL;
-const char *argp_program_bug_address = "<algernon@bonehunter.rulez.org>";
+const char *argp_program_version = "ccze 0.3." PATCHLEVEL;
+const char *argp_program_bug_address = "<https://github.com/software-revive/ccze-rv>";
 static struct argp_option options[] = {
   {"rcfile", 'F', "FILE", 0, "Read configuration from FILE", 1},
   {"html", 'h', NULL, 0, "Generate HTML output", 1},

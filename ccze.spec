@@ -1,4 +1,4 @@
-%define version 0.2.1
+%define version 0.3.0
 %define dist stable
 %define release 1
 
