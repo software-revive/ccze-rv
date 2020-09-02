@@ -23,7 +23,7 @@ dnl **********************
 dnl * Boilerplate
 dnl **********************
 AC_PREREQ(2.54)
-AC_INIT([ccze], [0.2-stable], [algernon@bonehunter.rulez.org])
+AC_INIT([ccze], [0.3.0], [https://github.com/software-revive/ccze-rv])
 AC_CONFIG_SRCDIR(src/ccze.c)
 
 AC_CONFIG_HEADERS(system.h)
