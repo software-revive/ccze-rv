@@ -33,7 +33,7 @@ LIBS		= @PCRE_LIBS@ @LIBS@
 
 SOURCES		= ccze.c ccze-color.c ccze-plugin.c ccze-wordcolor.c \
 		$(addprefix mod_,$(addsuffix .c, ${ALL_PLUGINS})) \
-		ccze-dump.c ccze-cssdump.c ccze-compat.c
+		ccze-keywordlookup.c ccze-dump.c ccze-cssdump.c ccze-compat.c
 HEADERS		= ccze.h ccze-compat.h ccze-private.h
 ALL_PLUGINS	= @ALL_PLUGINS@
 S_PLUGINS	= @S_PLUGINS@
