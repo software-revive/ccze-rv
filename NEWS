@@ -1,5 +1,17 @@
 NEWS -- list of user-visible changes		-*- outline -*-
 
+* CCZE 0.3.0 [Phoenix] -- 2020-09-02
+
+Phoenix rises from the ashes 17 years after the last release.
+The upstream is dead, but long live CCZE! Most of the work was done 7
+years ago, but I was too lazy to make the release. Sorry.
+
+The new maintainer is Vadim Ushakov, and the new site URL is
+https://github.com/software-revive/ccze-rv.
+
+No new features introduced in this release, but we've achieved SIGNIFICANT
+performance improvements. And also fixed an old segfault.
+
 * CCZE 0.2.1 [Fireflower] -- 2003-05-13
 
 The Fireflower release brings transparency and background colour
